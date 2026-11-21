@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pixel Agents HQ</title>
+  <script src="/preload.js"></script>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header class="hud">
+    <div class="hud-row">
+      <div class="brand">
+        <span class="brand-badge">HQ</span>
+        <div class="brand-text">
+          <div class="brand-title">PIXEL AGENTS HQ <span class="pill-live" id="live-pill"><i class="dot"></i>Live · 0 Token</span></div>
+          <div class="brand-sub" id="session-title">Đang dò phiên multi-agent...</div>
+        </div>
+      </div>
+
+      <div class="hud-controls">
+        <div class="seg-group" role="group" aria-label="Chế độ hiển thị">
+          <button type="button" class="seg on" data-view="departments">Phòng ban 2D</button>
+          <button type="button" class="seg" data-view="grid">Lưới thẻ</button>
+        </div>
+        <button type="button" id="btn-follow-current" class="px-btn active" title="Tự bám phiên chat đang mở">Phiên này</button>
+        <select id="session-select" class="px-select" aria-label="Chọn phiên multi-agent"></select>
+        <button type="button" id="btn-toggle-drawer" class="px-btn gold" aria-expanded="true">
+          Nhật ký <span class="badge-count" id="feed-count">0</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="hud-row hud-stats">
+      <div class="kpi-group" role="group" aria-label="Lọc theo trạng thái">
+        <button type="button" class="kpi kpi-working" data-status="working"><i class="dot"></i><b id="cnt-working">0</b> Chạy</button>
+        <button type="button" class="kpi kpi-waiting" data-status="waiting"><i class="dot"></i><b id="cnt-waiting">0</b> Chờ</button>
+        <button type="button" class="kpi kpi-done" data-status="done"><i class="dot"></i><b id="cnt-done">0</b> Xong</button>
+        <button type="button" class="kpi kpi-alert" data-status="alert"><i class="dot"></i><b id="cnt-alert">0</b> Lỗi/Kẹt</button>
+      </div>
+
+      <div class="meta-group">
+        <span class="meta-chip" id="meta-kind">—</span>
+        <span class="meta-chip" id="meta-steps">0 bước</span>
+        <span class="meta-chip" id="meta-tokens" title="Tổng token (input + output) trong cửa sổ gần nhất">0 tok</span>
+        <div class="seg-group" role="group" aria-label="Lọc nguồn phiên">
+          <button type="button" class="seg on" data-kind="all">Tất cả</button>
+          <button type="button" class="seg" data-kind="swarm">Swarm</button>
+          <button type="button" class="seg" data-kind="subagent">Subagent</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <section id="attention-bar" class="attention-bar hidden" aria-live="polite"></section>
+
+  <div class="workspace">
+    <main class="stage">
+      <div id="stage-content"></div>
+      <section id="empty-state" class="empty-state hidden">
+        <div class="empty-box">
+          <div class="empty-title">CHƯA CÓ SWARM / SUBAGENT TRONG PHIÊN NÀY</div>
+          <p class="empty-desc">Bắt đầu bằng <code>/swarm</code>, <code>/teamwork</code> hoặc chọn nhanh một phiên multi-agent gần đây bên dưới:</p>
+          <div id="quick-sessions" class="quick-sessions"></div>
+        </div>
+      </section>
+    </main>
+
+    <aside id="side-drawer" class="drawer">
+      <div class="drawer-head">
+        <div class="drawer-tabs" role="tablist">
+          <button type="button" class="dtab on" data-dtab="feed" role="tab" aria-selected="true">Nhật ký</button>
+          <button type="button" class="dtab" data-dtab="detail" role="tab" aria-selected="false">Chi tiết Agent</button>
+        </div>
+        <button type="button" id="btn-close-drawer" class="icon-close" title="Ẩn bảng">✕</button>
+      </div>
+
+      <div id="panel-feed" class="drawer-body">
+        <div class="feed-filter-bar hidden" id="feed-filter-bar">
+          <span id="feed-filter-label"></span>
+          <button type="button" id="btn-clear-feed-filter" class="link-mini">Xem tất cả</button>
+        </div>
+        <div id="feed-list" class="feed-list"></div>
+      </div>
+
+      <div id="panel-detail" class="drawer-body hidden">
+        <div id="agent-detail" class="agent-detail">
+          <div class="empty-mini">Click vào nhân vật trong phòng ban (hoặc thẻ Agent) để xem File đã sửa, 12 hành động gần nhất & mở chat.</div>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

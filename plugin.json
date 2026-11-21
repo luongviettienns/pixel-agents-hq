@@ -1,0 +1,15 @@
+{
+  "name": "pixel-agents",
+  "displayName": "Pixel Agents HQ",
+  "version": "1.0.0",
+  "author": "luongviettienns",
+  "homepage": "https://github.com/luongviettienns/pixel-agents-hq",
+  "repository": "https://github.com/luongviettienns/pixel-agents-hq",
+  "description": "16-bit pixel-game department HQ side pane for Antigravity Swarm and Subagent multi-agent sessions (0 AI tokens, zero dependencies).",
+  "logo": "assets/logo.svg",
+  "suggestedPrompts": [
+    "Open Pixel Agents HQ to monitor the active swarm",
+    "Check which multi-agent workers are stuck or waiting",
+    "Inspect edited files and recent tool activity across my agents"
+  ]
+}
