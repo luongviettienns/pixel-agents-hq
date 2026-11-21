@@ -382,4 +382,47 @@ describe('mediaStore (custom bg image/video & glass theme)', () => {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  it('supports BGM audio uploads, volume clamping, Range 206 streaming, and clean reset on delete', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'pixel-hq-bgm-'));
+    try {
+      const store = createMediaStore(dir);
+      const mp3Bytes = Buffer.from([0x49, 0x44, 0x33, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10]);
+      const up1 = store.uploadMedia('Lofi Chill.mp3', mp3Bytes.toString('base64'));
+      const up2 = store.uploadMedia('Lofi Copy.mp3', mp3Bytes.toString('base64'));
+      assert.equal(up1.kind, 'audio');
+      assert.equal(up1.name, up2.name);
+
+      const saved = store.saveConfig({ bgmEnabled: true, bgmFile: up1.name, bgmVolume: 1.8 });
+      assert.equal(saved.bgmEnabled, true);
+      assert.equal(saved.bgmFile, up1.name);
+      assert.equal(saved.bgmVolume, 1);
+
+      const low = store.saveConfig({ bgmVolume: -0.5 });
+      assert.equal(low.bgmVolume, 0);
+
+      const badFile = store.saveConfig({ bgmEnabled: true, bgmFile: '../evil.mp3' });
+      assert.equal(badFile.bgmEnabled, false);
+      assert.equal(badFile.bgmFile, '');
+
+      store.saveConfig({ bgmEnabled: true, bgmFile: up1.name, bgmVolume: 0.4 });
+      const range = store.readMediaRange(up1.name, 'bytes=0-3');
+      assert.equal(range.status, 206);
+      assert.equal(range.contentType, 'audio/mpeg');
+      assert.equal(range.body.length, 4);
+
+      // Deleting active audio resets BGM fields without touching visual mode
+      const pngBytes = Buffer.from([0x89, 0x50, 0x4e, 0x47, 9, 8, 7]);
+      const img = store.uploadMedia('wall.png', pngBytes.toString('base64'));
+      store.saveConfig({ mode: 'image', mediaFile: img.name });
+      assert.equal(store.deleteMedia(up1.name), true);
+      const after = store.getConfig();
+      assert.equal(after.bgmEnabled, false);
+      assert.equal(after.bgmFile, '');
+      assert.equal(after.mode, 'image');
+      assert.equal(after.mediaFile, img.name);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });

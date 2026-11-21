@@ -105,7 +105,10 @@ app.api('/api/theme', (data) => ({
 
 app.api('/api/media/upload', (data) => {
   const uploaded = mediaStore.uploadMedia(data?.name, data?.dataBase64);
-  const config = mediaStore.saveConfig({ mode: uploaded.kind, mediaFile: uploaded.name });
+  const patch = uploaded.kind === 'audio'
+    ? { bgmFile: uploaded.name, bgmEnabled: true }
+    : { mode: uploaded.kind, mediaFile: uploaded.name };
+  const config = mediaStore.saveConfig(patch);
   return { uploaded, config, files: mediaStore.listMedia() };
 }, 'POST');
 

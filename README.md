@@ -38,7 +38,7 @@ Plugin đọc trực tiếp (read-only) dữ liệu cục bộ từ `~/.gemini/a
 - **Hỗ trợ cả Native Swarm lẫn Subagent**: đọc đồng thời `members.json` + `board.jsonl` + `plan.json` (Swarm) và `invoke_subagent` / `send_message` (Subagent) từ `transcript.jsonl`.
 - **Thanh Cảnh Báo Nóng (Attention Strip)**: tự nổi cảnh báo trên cùng khi có agent gặp lỗi, hết quota (`429`), kẹt không tiến triển >10 phút (`STUCK`), hoặc Coordinator đang dừng chờ bạn trả lời — kèm nút **`Mở chat ↗`**.
 - **File đã sửa &amp; Timeline 12 bước mở 1-click**: xem danh sách file agent vừa `edit_file`/`write_file` và 12 bước gần nhất; bấm **`↗`** để mở thẳng file sang tab bên cạnh trong Antigravity để review ngay.
-- **Tùy chỉnh nền Ảnh/Video &amp; Kính mờ (`🎨 Nền`)**: tải lên/chọn/xóa nền ảnh tĩnh (`.png`, `.jpg`, `.webp`, `.gif` ≤8 MB) hoặc video động (`.mp4`, `.webm` ≤18 MB), tự khử trùng theo SHA-256, giải phóng video decoder khi ẩn tab/đổi nền, kèm 3 thanh kéo **Độ tối nền**, **Độ mờ kính (`backdrop-filter`)** và **Độ đặc thẻ** lưu bền trong `theme_config.json`.
+- **Tùy chỉnh nền Ảnh/Video, Kính mờ &amp; Nhạc nền (`🎨 Nền` / `🔊 Nhạc`)**: tải lên/chọn/xóa nền ảnh tĩnh (`.png`, `.jpg`, `.webp`, `.gif` ≤8 MB), video động (`.mp4`, `.webm` ≤18 MB) và nhạc nền lặp vòng (`.mp3`, `.ogg`, `.wav`, `.m4a` ≤18 MB), tự khử trùng theo SHA-256, giải phóng video decoder khi ẩn tab/đổi nền, kèm thanh kéo **Độ tối nền**, **Độ mờ kính (`backdrop-filter`)**, **Độ đặc thẻ** và **Âm lượng nhạc nền** lưu bền trong `theme_config.json`.
 - **0 Token AI &amp; Siêu nhẹ**: đọc cửa sổ đuôi (tail-read) + cache theo `mtime`/`etag`, quét hàng trăm phiên trong ~100ms, tự tạm dừng animation &amp; polling khi ẩn tab.
 
 ---
@@ -102,7 +102,7 @@ pixel-agents-hq/
 └── sidecars/pixel_hq/
     ├── sidecar.json                # Cấu hình Aux Pane Web UI
     ├── store.mjs                   # Engine đọc dữ liệu read-only (Swarm, Subagent, Transcript)
-    ├── media.mjs                   # Lưu cấu hình kính mờ & quản lý ảnh/video nền cục bộ (SHA-256 dedup)
+    ├── media.mjs                   # Lưu cấu hình kính mờ/BGM & quản lý ảnh/video/nhạc cục bộ (SHA-256 dedup)
     ├── main.mjs                    # HTTP server mỏng trên sidecar_sdk (/api/sessions, /api/state, /api/theme)
     ├── pixel-scene.js              # Renderer Canvas 2D tách riêng (5 theme phòng ban + sprite)
     ├── index.html & style.css      # Giao diện 16-bit RPG bằng CSS variables

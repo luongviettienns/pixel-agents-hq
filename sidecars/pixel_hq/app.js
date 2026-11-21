@@ -26,7 +26,7 @@ const state = {
   canvasHitboxes: new WeakMap(),
   tick: 0,
   online: true,
-  theme: { mode: 'default', mediaFile: '', dim: 0.45, blur: 6, glassOpacity: 0.84 },
+  theme: { mode: 'default', mediaFile: '', dim: 0.45, blur: 6, glassOpacity: 0.84, bgmEnabled: false, bgmFile: '', bgmVolume: 0.35 },
   mediaFiles: [],
 };
 
@@ -721,16 +721,62 @@ document.addEventListener('visibilitychange', () => {
   }
 });
 
-// ==================== CUSTOM BACKGROUND & GLASS STUDIO ====================
+// ==================== CUSTOM BACKGROUND, GLASS & BGM STUDIO ====================
 let themeSaveTimer = null;
+let bgmUnlockArmed = false;
 
-function releaseVideo(vid) {
-  if (!vid) return;
-  vid.pause();
-  if (vid.getAttribute('src')) {
-    vid.removeAttribute('src');
-    vid.load();
+function releaseMediaEl(el) {
+  if (!el) return;
+  el.pause();
+  if (el.getAttribute('src')) {
+    el.removeAttribute('src');
+    el.load();
   }
+}
+
+function armBgmUnlock() {
+  if (bgmUnlockArmed) return;
+  bgmUnlockArmed = true;
+  const resume = () => {
+    bgmUnlockArmed = false;
+    window.removeEventListener('pointerdown', resume);
+    window.removeEventListener('keydown', resume);
+    if (state.theme.bgmEnabled && state.theme.bgmFile) {
+      $('bgm-audio')?.play().catch(() => {});
+    }
+  };
+  window.addEventListener('pointerdown', resume, { once: true });
+  window.addEventListener('keydown', resume, { once: true });
+}
+
+function applyBgmToDOM() {
+  const t = state.theme;
+  const audio = $('bgm-audio');
+  const vol = typeof t.bgmVolume === 'number' ? t.bgmVolume : 0.35;
+  const active = Boolean(t.bgmEnabled && t.bgmFile);
+
+  if (audio) {
+    audio.volume = Math.min(1, Math.max(0, vol));
+    if (!active) {
+      releaseMediaEl(audio);
+    } else {
+      const src = `/media/file?name=${encodeURIComponent(t.bgmFile)}`;
+      if (audio.getAttribute('src') !== src) audio.src = src;
+      if (audio.paused) audio.play().catch(() => armBgmUnlock());
+    }
+  }
+
+  const pct = Math.round(vol * 100);
+  $('sl-bgm-vol').value = String(pct);
+  $('val-bgm-vol').textContent = `${pct}%`;
+
+  const hudBtn = $('btn-bgm-toggle');
+  hudBtn.textContent = active ? '🔊 Nhạc' : '🔇 Nhạc';
+  hudBtn.classList.toggle('active', active);
+
+  const playBtn = $('btn-bgm-play');
+  playBtn.textContent = active ? '⏸ Tạm dừng' : '▶ Phát nhạc';
+  playBtn.classList.toggle('active', active);
 }
 
 function applyThemeToDOM() {
@@ -752,11 +798,11 @@ function applyThemeToDOM() {
     img.classList.add('hidden');
     img.removeAttribute('src');
     vid.classList.add('hidden');
-    releaseVideo(vid);
+    releaseMediaEl(vid);
   } else {
     const src = `/media/file?name=${encodeURIComponent(t.mediaFile)}`;
     if (t.mode === 'image') {
-      releaseVideo(vid);
+      releaseMediaEl(vid);
       vid.classList.add('hidden');
       if (img.getAttribute('src') !== src) img.src = src;
       img.classList.remove('hidden');
@@ -780,26 +826,66 @@ function applyThemeToDOM() {
   document.querySelectorAll('[data-bg-mode]').forEach((b) => {
     b.classList.toggle('on', b.dataset.bgMode === t.mode);
   });
+  applyBgmToDOM();
   renderMediaLibrary();
 }
 
 function renderMediaLibrary() {
+  const visualFiles = state.mediaFiles.filter((f) => f.kind !== 'audio');
+  const audioFiles = state.mediaFiles.filter((f) => f.kind === 'audio');
+
   const box = $('media-library');
-  if (!state.mediaFiles.length) {
+  if (!visualFiles.length) {
     box.innerHTML = '<div class="empty-mini">Chưa có ảnh/video nào. Bấm "+ Tải ảnh/video" để thêm (ảnh ≤8MB, video ≤18MB).</div>';
-    return;
+  } else {
+    box.innerHTML = visualFiles.map((f) => {
+      const active = state.theme.mediaFile === f.name && state.theme.mode === f.kind;
+      const mb = (f.size / (1024 * 1024)).toFixed(1);
+      return `
+        <div class="media-item ${active ? 'on' : ''}">
+          <button type="button" class="media-pick" data-pick-media="${esc(f.name)}" data-media-kind="${esc(f.kind)}" title="${esc(f.name)}">
+            ${f.kind === 'video' ? '🎬' : '🖼'} ${esc(f.name)} (${mb}MB)
+          </button>
+          <button type="button" class="media-del" data-del-media="${esc(f.name)}" title="Xóa tệp">✕</button>
+        </div>`;
+    }).join('');
   }
-  box.innerHTML = state.mediaFiles.map((f) => {
-    const active = state.theme.mediaFile === f.name && state.theme.mode === f.kind;
-    const mb = (f.size / (1024 * 1024)).toFixed(1);
-    return `
-      <div class="media-item ${active ? 'on' : ''}">
-        <button type="button" class="media-pick" data-pick-media="${esc(f.name)}" data-media-kind="${esc(f.kind)}" title="${esc(f.name)}">
-          ${f.kind === 'video' ? '🎬' : '🖼'} ${esc(f.name)} (${mb}MB)
-        </button>
-        <button type="button" class="media-del" data-del-media="${esc(f.name)}" title="Xóa tệp">✕</button>
-      </div>`;
-  }).join('');
+
+  const bgmBox = $('bgm-library');
+  if (!audioFiles.length) {
+    bgmBox.innerHTML = '<div class="empty-mini">Chưa có nhạc nền. Bấm "+ Tải nhạc" (.mp3, .ogg, .wav, .m4a ≤18MB).</div>';
+  } else {
+    bgmBox.innerHTML = audioFiles.map((f) => {
+      const active = state.theme.bgmFile === f.name && state.theme.bgmEnabled;
+      const mb = (f.size / (1024 * 1024)).toFixed(1);
+      return `
+        <div class="media-item ${active ? 'on' : ''}">
+          <button type="button" class="media-pick" data-pick-bgm="${esc(f.name)}" title="${esc(f.name)}">
+            🎵 ${esc(f.name)} (${mb}MB)
+          </button>
+          <button type="button" class="media-del" data-del-media="${esc(f.name)}" title="Xóa tệp">✕</button>
+        </div>`;
+    }).join('');
+  }
+}
+
+function toggleBgm() {
+  if (state.theme.bgmEnabled) {
+    state.theme.bgmEnabled = false;
+  } else if (state.theme.bgmFile) {
+    state.theme.bgmEnabled = true;
+  } else {
+    const firstAudio = state.mediaFiles.find((f) => f.kind === 'audio');
+    if (!firstAudio) {
+      $('theme-modal').classList.remove('hidden');
+      loadTheme();
+      return;
+    }
+    state.theme.bgmFile = firstAudio.name;
+    state.theme.bgmEnabled = true;
+  }
+  applyThemeToDOM();
+  scheduleSaveTheme();
 }
 
 function scheduleSaveTheme() {
@@ -817,6 +903,41 @@ async function loadTheme() {
     applyThemeToDOM();
   } catch {}
 }
+
+async function uploadMediaFile(file) {
+  if (!file) return;
+  const st = $('theme-upload-status');
+  st.textContent = `Đang tải lên ${file.name}...`;
+  st.classList.remove('hidden');
+  try {
+    const dataBase64 = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ''));
+      reader.onerror = () => reject(new Error('Không đọc được file'));
+      reader.readAsDataURL(file);
+    });
+    const res = await apiPost('/api/media/upload', { name: file.name, dataBase64 });
+    if (res?.config) state.theme = res.config;
+    if (Array.isArray(res?.files)) state.mediaFiles = res.files;
+    applyThemeToDOM();
+    st.textContent = `Đã áp dụng ${file.name}`;
+    setTimeout(() => st.classList.add('hidden'), 2000);
+  } catch (err) {
+    st.textContent = `Lỗi: ${err.message}`;
+  }
+}
+
+async function deleteMediaFile(name) {
+  try {
+    const res = await apiPost('/api/media/delete', { name });
+    if (res?.config) state.theme = res.config;
+    if (Array.isArray(res?.files)) state.mediaFiles = res.files;
+    applyThemeToDOM();
+  } catch {}
+}
+
+$('btn-bgm-toggle').addEventListener('click', toggleBgm);
+$('btn-bgm-play').addEventListener('click', toggleBgm);
 
 $('btn-theme-studio').addEventListener('click', () => {
   $('theme-modal').classList.toggle('hidden');
@@ -859,33 +980,25 @@ $('sl-glass').addEventListener('input', (e) => {
   applyThemeToDOM();
   scheduleSaveTheme();
 });
-
-$('media-upload-input').addEventListener('change', async (e) => {
-  const file = e.target.files?.[0];
-  e.target.value = '';
-  if (!file) return;
-  const st = $('theme-upload-status');
-  st.textContent = `Đang tải lên ${file.name}...`;
-  st.classList.remove('hidden');
-  try {
-    const dataBase64 = await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result || ''));
-      reader.onerror = () => reject(new Error('Không đọc được file'));
-      reader.readAsDataURL(file);
-    });
-    const res = await apiPost('/api/media/upload', { name: file.name, dataBase64 });
-    if (res?.config) state.theme = res.config;
-    if (Array.isArray(res?.files)) state.mediaFiles = res.files;
-    applyThemeToDOM();
-    st.textContent = `Đã áp dụng ${file.name}`;
-    setTimeout(() => st.classList.add('hidden'), 2000);
-  } catch (err) {
-    st.textContent = `Lỗi: ${err.message}`;
-  }
+$('sl-bgm-vol').addEventListener('input', (e) => {
+  state.theme.bgmVolume = Number(e.target.value) / 100;
+  applyBgmToDOM();
+  scheduleSaveTheme();
 });
 
-$('media-library').addEventListener('click', async (e) => {
+$('media-upload-input').addEventListener('change', (e) => {
+  const file = e.target.files?.[0];
+  e.target.value = '';
+  uploadMediaFile(file);
+});
+
+$('bgm-upload-input').addEventListener('change', (e) => {
+  const file = e.target.files?.[0];
+  e.target.value = '';
+  uploadMediaFile(file);
+});
+
+$('media-library').addEventListener('click', (e) => {
   const pick = e.target.closest('[data-pick-media]');
   if (pick) {
     state.theme.mode = pick.dataset.mediaKind;
@@ -895,12 +1008,18 @@ $('media-library').addEventListener('click', async (e) => {
     return;
   }
   const del = e.target.closest('[data-del-media]');
-  if (del) {
-    try {
-      const res = await apiPost('/api/media/delete', { name: del.dataset.delMedia });
-      if (res?.config) state.theme = res.config;
-      if (Array.isArray(res?.files)) state.mediaFiles = res.files;
-      applyThemeToDOM();
-    } catch {}
+  if (del) deleteMediaFile(del.dataset.delMedia);
+});
+
+$('bgm-library').addEventListener('click', (e) => {
+  const pick = e.target.closest('[data-pick-bgm]');
+  if (pick) {
+    state.theme.bgmFile = pick.dataset.pickBgm;
+    state.theme.bgmEnabled = true;
+    applyThemeToDOM();
+    scheduleSaveTheme();
+    return;
   }
+  const del = e.target.closest('[data-del-media]');
+  if (del) deleteMediaFile(del.dataset.delMedia);
 });
