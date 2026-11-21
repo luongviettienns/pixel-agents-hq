@@ -26,6 +26,8 @@ const state = {
   canvasHitboxes: new WeakMap(),
   tick: 0,
   online: true,
+  theme: { mode: 'default', mediaFile: '', dim: 0.45, blur: 6, glassOpacity: 0.84 },
+  mediaFiles: [],
 };
 
 const currentConv = () => window.sidecar?.conversationId || params.get('conversationId') || '';
@@ -46,6 +48,21 @@ async function apiGet(path) {
   const fetcher = window.sidecar?.fetch ? window.sidecar.fetch.bind(window.sidecar) : fetch;
   const res = await fetcher(path, { method: 'GET' });
   if (!res.ok) throw new Error(`${path}: ${res.status}`);
+  return res.json();
+}
+
+async function apiPost(path, payload) {
+  const fetcher = window.sidecar?.fetch ? window.sidecar.fetch.bind(window.sidecar) : fetch;
+  const res = await fetcher(path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload || {}),
+  });
+  if (!res.ok) {
+    let msg = `${res.status}`;
+    try { msg = (await res.json()).error || msg; } catch {}
+    throw new Error(msg);
+  }
   return res.json();
 }
 
@@ -681,6 +698,7 @@ document.addEventListener('keydown', (e) => {
 // Init
 document.querySelectorAll('[data-view]').forEach((b) => b.classList.toggle('on', b.dataset.view === state.viewMode));
 setDrawer(state.drawerOpen, state.drawerTab);
+loadTheme();
 pollSessions();
 pollState(true);
 
@@ -694,5 +712,195 @@ setInterval(() => {
 setInterval(() => pollState(false), POLL_STATE_MS);
 setInterval(() => pollSessions(), POLL_SESSIONS_MS);
 document.addEventListener('visibilitychange', () => {
-  if (!document.hidden) pollState(false);
+  const vid = $('bg-video');
+  if (document.hidden) {
+    if (vid && !vid.paused) vid.pause();
+  } else {
+    if (state.theme.mode === 'video' && vid?.src) vid.play().catch(() => {});
+    pollState(false);
+  }
+});
+
+// ==================== CUSTOM BACKGROUND & GLASS STUDIO ====================
+let themeSaveTimer = null;
+
+function releaseVideo(vid) {
+  if (!vid) return;
+  vid.pause();
+  if (vid.getAttribute('src')) {
+    vid.removeAttribute('src');
+    vid.load();
+  }
+}
+
+function applyThemeToDOM() {
+  const t = state.theme;
+  const root = document.documentElement.style;
+  root.setProperty('--bg-dim', String(t.dim));
+  root.setProperty('--bg-blur', `${t.blur}px`);
+  root.setProperty('--glass-alpha', String(t.glassOpacity));
+
+  const stage = $('bg-stage');
+  const img = $('bg-img');
+  const vid = $('bg-video');
+  const active = (t.mode === 'image' || t.mode === 'video') && Boolean(t.mediaFile);
+
+  document.body.classList.toggle('has-custom-bg', active);
+  stage.classList.toggle('hidden', !active);
+
+  if (!active) {
+    img.classList.add('hidden');
+    img.removeAttribute('src');
+    vid.classList.add('hidden');
+    releaseVideo(vid);
+  } else {
+    const src = `/media/file?name=${encodeURIComponent(t.mediaFile)}`;
+    if (t.mode === 'image') {
+      releaseVideo(vid);
+      vid.classList.add('hidden');
+      if (img.getAttribute('src') !== src) img.src = src;
+      img.classList.remove('hidden');
+    } else {
+      img.classList.add('hidden');
+      img.removeAttribute('src');
+      if (vid.getAttribute('src') !== src) {
+        vid.src = src;
+        vid.play().catch(() => {});
+      }
+      vid.classList.remove('hidden');
+    }
+  }
+
+  $('sl-dim').value = String(Math.round(t.dim * 100));
+  $('val-dim').textContent = `${Math.round(t.dim * 100)}%`;
+  $('sl-blur').value = String(Math.round(t.blur));
+  $('val-blur').textContent = `${Math.round(t.blur)}px`;
+  $('sl-glass').value = String(Math.round(t.glassOpacity * 100));
+  $('val-glass').textContent = `${Math.round(t.glassOpacity * 100)}%`;
+  document.querySelectorAll('[data-bg-mode]').forEach((b) => {
+    b.classList.toggle('on', b.dataset.bgMode === t.mode);
+  });
+  renderMediaLibrary();
+}
+
+function renderMediaLibrary() {
+  const box = $('media-library');
+  if (!state.mediaFiles.length) {
+    box.innerHTML = '<div class="empty-mini">Chưa có ảnh/video nào. Bấm "+ Tải ảnh/video" để thêm (ảnh ≤8MB, video ≤18MB).</div>';
+    return;
+  }
+  box.innerHTML = state.mediaFiles.map((f) => {
+    const active = state.theme.mediaFile === f.name && state.theme.mode === f.kind;
+    const mb = (f.size / (1024 * 1024)).toFixed(1);
+    return `
+      <div class="media-item ${active ? 'on' : ''}">
+        <button type="button" class="media-pick" data-pick-media="${esc(f.name)}" data-media-kind="${esc(f.kind)}" title="${esc(f.name)}">
+          ${f.kind === 'video' ? '🎬' : '🖼'} ${esc(f.name)} (${mb}MB)
+        </button>
+        <button type="button" class="media-del" data-del-media="${esc(f.name)}" title="Xóa tệp">✕</button>
+      </div>`;
+  }).join('');
+}
+
+function scheduleSaveTheme() {
+  clearTimeout(themeSaveTimer);
+  themeSaveTimer = setTimeout(() => {
+    apiPost('/api/theme', state.theme).catch(() => {});
+  }, 180);
+}
+
+async function loadTheme() {
+  try {
+    const res = await apiGet('/api/theme');
+    if (res?.config) state.theme = res.config;
+    if (Array.isArray(res?.files)) state.mediaFiles = res.files;
+    applyThemeToDOM();
+  } catch {}
+}
+
+$('btn-theme-studio').addEventListener('click', () => {
+  $('theme-modal').classList.toggle('hidden');
+  loadTheme();
+});
+
+$('btn-close-theme').addEventListener('click', () => $('theme-modal').classList.add('hidden'));
+$('theme-modal').addEventListener('click', (e) => {
+  if (e.target === $('theme-modal')) $('theme-modal').classList.add('hidden');
+});
+
+document.querySelectorAll('[data-bg-mode]').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const mode = btn.dataset.bgMode;
+    if (mode === 'default') {
+      state.theme.mode = 'default';
+    } else {
+      const match = state.mediaFiles.find((f) => f.name === state.theme.mediaFile && f.kind === mode)
+        || state.mediaFiles.find((f) => f.kind === mode);
+      state.theme.mode = match ? mode : 'default';
+      if (match) state.theme.mediaFile = match.name;
+    }
+    applyThemeToDOM();
+    scheduleSaveTheme();
+  });
+});
+
+$('sl-dim').addEventListener('input', (e) => {
+  state.theme.dim = Number(e.target.value) / 100;
+  applyThemeToDOM();
+  scheduleSaveTheme();
+});
+$('sl-blur').addEventListener('input', (e) => {
+  state.theme.blur = Number(e.target.value);
+  applyThemeToDOM();
+  scheduleSaveTheme();
+});
+$('sl-glass').addEventListener('input', (e) => {
+  state.theme.glassOpacity = Number(e.target.value) / 100;
+  applyThemeToDOM();
+  scheduleSaveTheme();
+});
+
+$('media-upload-input').addEventListener('change', async (e) => {
+  const file = e.target.files?.[0];
+  e.target.value = '';
+  if (!file) return;
+  const st = $('theme-upload-status');
+  st.textContent = `Đang tải lên ${file.name}...`;
+  st.classList.remove('hidden');
+  try {
+    const dataBase64 = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ''));
+      reader.onerror = () => reject(new Error('Không đọc được file'));
+      reader.readAsDataURL(file);
+    });
+    const res = await apiPost('/api/media/upload', { name: file.name, dataBase64 });
+    if (res?.config) state.theme = res.config;
+    if (Array.isArray(res?.files)) state.mediaFiles = res.files;
+    applyThemeToDOM();
+    st.textContent = `Đã áp dụng ${file.name}`;
+    setTimeout(() => st.classList.add('hidden'), 2000);
+  } catch (err) {
+    st.textContent = `Lỗi: ${err.message}`;
+  }
+});
+
+$('media-library').addEventListener('click', async (e) => {
+  const pick = e.target.closest('[data-pick-media]');
+  if (pick) {
+    state.theme.mode = pick.dataset.mediaKind;
+    state.theme.mediaFile = pick.dataset.pickMedia;
+    applyThemeToDOM();
+    scheduleSaveTheme();
+    return;
+  }
+  const del = e.target.closest('[data-del-media]');
+  if (del) {
+    try {
+      const res = await apiPost('/api/media/delete', { name: del.dataset.delMedia });
+      if (res?.config) state.theme = res.config;
+      if (Array.isArray(res?.files)) state.mediaFiles = res.files;
+      applyThemeToDOM();
+    } catch {}
+  }
 });
