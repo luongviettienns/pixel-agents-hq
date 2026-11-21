@@ -10,7 +10,6 @@ import {
   resolveSessionForConversation,
   buildSessionState,
 } from './store.mjs';
-import { createMediaStore } from './media.mjs';
 
 function makeTempAppData() {
   const root = mkdtempSync(join(tmpdir(), 'pixel-hq-test-'));
@@ -346,83 +345,5 @@ describe('Swarm & Subagent session engine', () => {
     assert.ok(sessions.length >= 1, 'expected at least 1 local session');
     const state = buildSessionState([localAppData], sessions[0].id, Date.now());
     assert.ok(state && state.members.length >= 1);
-  });
-});
-
-describe('mediaStore (custom bg image/video & glass theme)', () => {
-  it('saves/clamps theme config, uploads deduplicated media, serves Range 206, and blocks traversal', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'pixel-hq-media-'));
-    try {
-      const store = createMediaStore(dir);
-      const saved = store.saveConfig({ mode: 'image', mediaFile: 'bg.png', dim: 2.5, blur: -5, glassOpacity: 0.1 });
-      assert.equal(saved.dim, 0.9);
-      assert.equal(saved.blur, 0);
-      assert.equal(saved.glassOpacity, 0.45);
-
-      const pngBytes = Buffer.from([0x89, 0x50, 0x4e, 0x47, 1, 2, 3, 4, 5, 6]);
-      const up1 = store.uploadMedia('My Wall.png', pngBytes.toString('base64'));
-      const up2 = store.uploadMedia('Duplicate.png', pngBytes.toString('base64'));
-      assert.equal(up1.kind, 'image');
-      assert.equal(up1.name, up2.name);
-      assert.equal(store.listMedia().length, 1);
-
-      const partial = store.readMediaRange(up1.name, 'bytes=0-3');
-      assert.equal(partial.status, 206);
-      assert.equal(partial.body.length, 4);
-      assert.equal(partial.headers['Content-Range'], 'bytes 0-3/10');
-
-      assert.throws(() => store.uploadMedia('evil.exe', pngBytes.toString('base64')), /unsupported/i);
-      assert.equal(store.readMediaRange('../secret.txt', ''), null);
-
-      store.saveConfig({ mode: 'image', mediaFile: up1.name, dim: 0.5, blur: 8, glassOpacity: 0.8 });
-      assert.equal(store.deleteMedia(up1.name), true);
-      assert.equal(store.listMedia().length, 0);
-      assert.equal(store.getConfig().mode, 'default');
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
-    }
-  });
-
-  it('supports BGM audio uploads, volume clamping, Range 206 streaming, and clean reset on delete', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'pixel-hq-bgm-'));
-    try {
-      const store = createMediaStore(dir);
-      const mp3Bytes = Buffer.from([0x49, 0x44, 0x33, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10]);
-      const up1 = store.uploadMedia('Lofi Chill.mp3', mp3Bytes.toString('base64'));
-      const up2 = store.uploadMedia('Lofi Copy.mp3', mp3Bytes.toString('base64'));
-      assert.equal(up1.kind, 'audio');
-      assert.equal(up1.name, up2.name);
-
-      const saved = store.saveConfig({ bgmEnabled: true, bgmFile: up1.name, bgmVolume: 1.8 });
-      assert.equal(saved.bgmEnabled, true);
-      assert.equal(saved.bgmFile, up1.name);
-      assert.equal(saved.bgmVolume, 1);
-
-      const low = store.saveConfig({ bgmVolume: -0.5 });
-      assert.equal(low.bgmVolume, 0);
-
-      const badFile = store.saveConfig({ bgmEnabled: true, bgmFile: '../evil.mp3' });
-      assert.equal(badFile.bgmEnabled, false);
-      assert.equal(badFile.bgmFile, '');
-
-      store.saveConfig({ bgmEnabled: true, bgmFile: up1.name, bgmVolume: 0.4 });
-      const range = store.readMediaRange(up1.name, 'bytes=0-3');
-      assert.equal(range.status, 206);
-      assert.equal(range.contentType, 'audio/mpeg');
-      assert.equal(range.body.length, 4);
-
-      // Deleting active audio resets BGM fields without touching visual mode
-      const pngBytes = Buffer.from([0x89, 0x50, 0x4e, 0x47, 9, 8, 7]);
-      const img = store.uploadMedia('wall.png', pngBytes.toString('base64'));
-      store.saveConfig({ mode: 'image', mediaFile: img.name });
-      assert.equal(store.deleteMedia(up1.name), true);
-      const after = store.getConfig();
-      assert.equal(after.bgmEnabled, false);
-      assert.equal(after.bgmFile, '');
-      assert.equal(after.mode, 'image');
-      assert.equal(after.mediaFile, img.name);
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
-    }
   });
 });

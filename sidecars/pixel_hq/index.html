@@ -8,13 +8,6 @@
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-  <div id="bg-stage" class="bg-stage hidden" aria-hidden="true">
-    <img id="bg-img" class="bg-media hidden" alt="" />
-    <video id="bg-video" class="bg-media hidden" autoplay loop muted playsinline></video>
-    <div id="bg-dim" class="bg-dim"></div>
-  </div>
-  <audio id="bgm-audio" loop preload="none"></audio>
-
   <header class="hud">
     <div class="hud-row">
       <div class="brand">
@@ -32,8 +25,6 @@
         </div>
         <button type="button" id="btn-follow-current" class="px-btn active" title="Tự bám phiên chat đang mở">Phiên này</button>
         <select id="session-select" class="px-select" aria-label="Chọn phiên multi-agent"></select>
-        <button type="button" id="btn-bgm-toggle" class="px-btn" title="Bật / Tắt nhạc nền">🔇 Nhạc</button>
-        <button type="button" id="btn-theme-studio" class="px-btn" title="Tùy chỉnh nền ảnh/video, kính mờ & nhạc nền">🎨 Nền</button>
         <button type="button" id="btn-toggle-drawer" class="px-btn gold" aria-expanded="true">
           Nhật ký <span class="badge-count" id="feed-count">0</span>
         </button>
@@ -99,64 +90,6 @@
       </div>
     </aside>
   </div>
-
-  <section id="theme-modal" class="theme-modal hidden" role="dialog" aria-label="Tùy chỉnh nền, kính mờ và nhạc nền">
-    <div class="theme-panel">
-      <div class="theme-head">
-        <span>🎨 NỀN, KÍNH MỜ &amp; NHẠC NỀN</span>
-        <button type="button" id="btn-close-theme" class="icon-close" title="Đóng">✕</button>
-      </div>
-      <div class="theme-body">
-        <div class="theme-row">
-          <div class="seg-group" role="group" aria-label="Chế độ nền">
-            <button type="button" class="seg on" data-bg-mode="default">Mặc định</button>
-            <button type="button" class="seg" data-bg-mode="image">Ảnh tĩnh</button>
-            <button type="button" class="seg" data-bg-mode="video">Video động</button>
-          </div>
-          <label class="px-btn primary" for="media-upload-input">+ Tải ảnh/video</label>
-          <input id="media-upload-input" type="file" accept=".png,.jpg,.jpeg,.webp,.gif,.mp4,.webm" class="hidden" />
-        </div>
-
-        <div id="theme-upload-status" class="theme-status hidden"></div>
-
-        <div class="slider-group">
-          <label class="slider-row">
-            <span>Độ tối nền</span>
-            <input id="sl-dim" type="range" min="0" max="90" step="5" value="45" />
-            <b id="val-dim">45%</b>
-          </label>
-          <label class="slider-row">
-            <span>Độ mờ kính</span>
-            <input id="sl-blur" type="range" min="0" max="20" step="1" value="6" />
-            <b id="val-blur">6px</b>
-          </label>
-          <label class="slider-row">
-            <span>Độ đặc thẻ</span>
-            <input id="sl-glass" type="range" min="45" max="100" step="1" value="84" />
-            <b id="val-glass">84%</b>
-          </label>
-        </div>
-
-        <div class="section-label">Thư viện nền cục bộ</div>
-        <div id="media-library" class="media-library"></div>
-
-        <div class="section-label">Nhạc nền (BGM)</div>
-        <div class="theme-row">
-          <button type="button" id="btn-bgm-play" class="px-btn">▶ Phát nhạc</button>
-          <label class="px-btn primary" for="bgm-upload-input">+ Tải nhạc</label>
-          <input id="bgm-upload-input" type="file" accept=".mp3,.ogg,.wav,.m4a" class="hidden" />
-        </div>
-        <div class="slider-group">
-          <label class="slider-row">
-            <span>Âm lượng</span>
-            <input id="sl-bgm-vol" type="range" min="0" max="100" step="5" value="35" />
-            <b id="val-bgm-vol">35%</b>
-          </label>
-        </div>
-        <div id="bgm-library" class="media-library"></div>
-      </div>
-    </div>
-  </section>
 
   <script type="module" src="/app.js"></script>
 </body>

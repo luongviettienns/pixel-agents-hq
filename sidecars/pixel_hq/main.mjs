@@ -9,7 +9,6 @@ import {
   resolveSessionForConversation,
   scanSessions,
 } from './store.mjs';
-import { createMediaStore } from './media.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const STATIC_FILES = {
@@ -17,10 +16,6 @@ const STATIC_FILES = {
   '/pixel-scene.js': ['pixel-scene.js', 'application/javascript; charset=utf-8'],
   '/app.js': ['app.js', 'application/javascript; charset=utf-8'],
 };
-
-const mediaStore = createMediaStore(
-  process.env.ANTIGRAVITY_EXECUTABLE_DATA_DIR || join(__dirname, 'user_data'),
-);
 
 const app = new SidecarApp();
 
@@ -90,41 +85,6 @@ app.api('/api/state', (data) => {
     return { currentConv: currentConv || null, unchanged: true, etag: state.etag };
   }
   return { currentConv: currentConv || null, session: state };
-}, 'GET');
-
-// Custom background image/video & glass theme endpoints
-app.api('/api/theme', () => ({
-  config: mediaStore.getConfig(),
-  files: mediaStore.listMedia(),
-}), 'GET');
-
-app.api('/api/theme', (data) => ({
-  config: mediaStore.saveConfig(data),
-  files: mediaStore.listMedia(),
-}), 'POST');
-
-app.api('/api/media/upload', (data) => {
-  const uploaded = mediaStore.uploadMedia(data?.name, data?.dataBase64);
-  const patch = uploaded.kind === 'audio'
-    ? { bgmFile: uploaded.name, bgmEnabled: true }
-    : { mode: uploaded.kind, mediaFile: uploaded.name };
-  const config = mediaStore.saveConfig(patch);
-  return { uploaded, config, files: mediaStore.listMedia() };
-}, 'POST');
-
-app.api('/api/media/delete', (data) => {
-  mediaStore.deleteMedia(data?.name);
-  return { config: mediaStore.getConfig(), files: mediaStore.listMedia() };
-}, 'POST');
-
-app.api('/media/file', (data) => {
-  const hit = mediaStore.readMediaRange(data?.name, data?.range || '');
-  if (!hit) return new Response('not found', { status: 404 });
-  return new Response(hit.body, {
-    status: hit.status,
-    contentType: hit.contentType,
-    headers: hit.headers,
-  });
 }, 'GET');
 
 app.run();
